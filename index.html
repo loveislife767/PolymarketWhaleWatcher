@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Polymarket Whale Dashboard</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #050816;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 1.5rem;
+    }
+    h1 {
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: #9ca3af;
+      margin-bottom: 1.25rem;
+    }
+    .filters, .top-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    select, button {
+      padding: 0.35rem 0.55rem;
+      border-radius: 0.375rem;
+      border: 1px solid #374151;
+      background: #0b1120;
+      color: #e5e7eb;
+    }
+    button {
+      cursor: pointer;
+    }
+    button:hover {
+      background: #111827;
+    }
+    .card {
+      background: #020617;
+      border-radius: 0.75rem;
+      border: 1px solid #1f2937;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.4);
+    }
+    .card-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    th, td {
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid #111827;
+      vertical-align: top;
+    }
+    th {
+      text-align: left;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9ca3af;
+    }
+    tr:nth-child(even) td {
+      background-color: rgba(15,23,42,0.75);
+    }
+    .pill {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+    }
+    .pill-sports { background: rgba(56,189,248,0.2); color: #38bdf8; }
+    .pill-crypto { background: rgba(52,211,153,0.18); color: #4ade80; }
+    .pill-politics { background: rgba(248,113,113,0.2); color: #fb7185; }
+    .pill-other { background: rgba(148,163,184,0.2); color: #cbd5f5; }
+
+    .badge-new-huge {
+      background: linear-gradient(90deg, #f97316, #ec4899);
+      color: white;
+      font-size: 0.7rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      font-weight: 600;
+      margin-left: 0.3rem;
+    }
+    .side-buy { color: #4ade80; font-weight: 600; }
+    .side-sell { color: #f97316; font-weight: 600; }
+    .muted { color: #9ca3af; }
+    .wallet {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.75rem;
+    }
+    .tag {
+      font-size: 0.7rem;
+      color: #9ca3af;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      background: #020617;
+      border: 1px solid #1f2937;
+      font-size: 0.72rem;
+      color: #9ca3af;
+    }
+    .chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+    }
+    .chip-dot.red { background:#f97316; }
+    .chip-dot.gray { background:#6b7280; }
+    .scroll {
+      max-height: 65vh;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Polymarket Whale Dashboard</h1>
+  <div class="subtitle">
+    Live >$10k whale flows from Polymarket, straight into your local DB.
+  </div>
+
+  <div class="top-row">
+    <div class="chip">
+      <span class="chip-dot"></span>
+      Live ingest running
+    </div>
+    <div class="chip">
+      <span class="chip-dot red"></span>
+      NEW wallet + size ≥ $20k highlighted
+    </div>
+    <div class="chip">
+      <span class="chip-dot gray"></span>
+      “Expiring soon” ≈ events today / next 24h
+    </div>
+  </div>
+
+  <div class="filters">
+    <label>
+      Category:
+      <select id="categoryFilter">
+        <option value="all">All</option>
+        <option value="sports">Sports</option>
+        <option value="crypto">Crypto</option>
+        <option value="politics">Politics</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+
+    <label>
+      Expiry window:
+      <select id="expiringFilter">
+        <option value="all">Any date</option>
+        <option value="today">Today / next 24h</option>
+      </select>
+    </label>
+
+    <label>
+      <input type="checkbox" id="newWalletOnly" />
+      New wallets only
+    </label>
+
+    <label>
+      Min notional:
+      <select id="minNotionalFilter">
+        <option value="0">Any</option>
+        <option value="10000">≥ $10k</option>
+        <option value="20000">≥ $20k</option>
+        <option value="50000">≥ $50k</option>
+      </select>
+    </label>
+
+    <button type="button" onclick="loadTrades()">Refresh trades</button>
+    <button type="button" onclick="loadTopWallets()">Refresh top wallets</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Top wallets (last 24h, by notional)</div>
+    <div class="scroll">
+      <table id="topWalletsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Wallet</th>
+            <th>Pseudonym</th>
+            <th>Trades</th>
+            <th>Total Notional</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- filled by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Recent whale trades</div>
+    <div class="scroll">
+      <table id="tradesTable">
+        <thead>
+          <tr>
+            <th>Time (UTC)</th>
+            <th>Wallet</th>
+            <th>Side</th>
+            <th>Market / Outcome</th>
+            <th>Category</th>
+            <th>Size</th>
+            <th>Price</th>
+            <th>Notional</th>
+            <th>Event Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- filled by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function formatUsd(x) {
+      if (x == null) return "-";
+      return "$" + x.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    function categoryPill(cat) {
+      const cls = {
+        sports: "pill pill-sports",
+        crypto: "pill pill-crypto",
+        politics: "pill pill-politics",
+        other: "pill pill-other",
+      }[cat] || "pill pill-other";
+
+      const label = (cat || "other").charAt(0).toUpperCase() + (cat || "other").slice(1);
+      return `<span class="${cls}">${label}</span>`;
+    }
+
+    async function loadTopWallets() {
+      const res = await fetch("/api/top_wallets?hours=24&limit=20");
+      const data = await res.json();
+      const tbody = document.querySelector("#topWalletsTable tbody");
+      tbody.innerHTML = "";
+
+      (data.wallets || []).forEach((w, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td class="wallet">${w.wallet}</td>
+          <td>${w.pseudonym}</td>
+          <td>${w.trade_count}</td>
+          <td>${formatUsd(w.total_notional || 0)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadTrades() {
+      const category = document.getElementById("categoryFilter").value;
+      const expiring = document.getElementById("expiringFilter").value;
+      const newWalletOnly = document.getElementById("newWalletOnly").checked;
+      const minNotional = Number(document.getElementById("minNotionalFilter").value || 0);
+
+      const res = await fetch(`/api/trades?category=${encodeURIComponent(category)}&expiring=${encodeURIComponent(expiring)}&limit=300`);
+      const data = await res.json();
+      const tbody = document.querySelector("#tradesTable tbody");
+      tbody.innerHTML = "";
+
+      (data.trades || []).forEach((t) => {
+        if (newWalletOnly && !t.is_new_wallet) return;
+        if (t.notional != null && t.notional < minNotional) return;
+
+        const isHugeNew = t.is_new_wallet && t.notional != null && t.notional >= 20000;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>
+            <div>${t.time_utc ? t.time_utc.replace("T", " ").replace(/\\+.*/, "") : "-"}</div>
+            <div class="tag">${t.tx_hash ? t.tx_hash.slice(0, 10) + "…" : ""}</div>
+          </td>
+          <td>
+            <div class="wallet">${t.wallet}</div>
+            <div class="tag">${t.pseudonym}</div>
+          </td>
+          <td>
+            <span class="side-${(t.side || "").toLowerCase()}">${t.side || ""}</span>
+            ${isHugeNew ? '<span class="badge-new-huge">NEW + SIZE</span>' : ""}
+          </td>
+          <td>
+            <div>${t.market || ""}</div>
+            <div class="tag">${t.outcome || ""}</div>
+          </td>
+          <td>${categoryPill(t.category)}</td>
+          <td>${t.size != null ? t.size.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "-"}</td>
+          <td>${t.price != null ? t.price.toFixed(3) : "-"}</td>
+          <td>${formatUsd(t.notional)}</td>
+          <td>${t.event_date || "-"}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // initial load
+    loadTopWallets();
+    loadTrades();
+    // refresh every 30s
+    setInterval(loadTrades, 30000);
+  </script>
+</body>
+</html>

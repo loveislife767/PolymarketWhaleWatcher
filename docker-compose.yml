@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: polymarket_db
+    environment:
+      POSTGRES_DB: polymarket
+      POSTGRES_USER: polymarket
+      POSTGRES_PASSWORD: polymarket
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    container_name: polymarket_backend
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: polymarket
+      DB_USER: polymarket
+      DB_PASSWORD: polymarket
+
+      # Whale tracker controls
+      MIN_CASH_USD: "10000"          # minimum notional (USDC) to record
+      POLL_INTERVAL_SECONDS: "10"    # API polling interval
+      LIMIT: "1000"                  # max trades per poll
+      LOG_LEVEL: "INFO"
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+volumes:
+  db_data:
+
